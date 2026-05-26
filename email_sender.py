@@ -143,6 +143,11 @@ def assemble_html_email(recipient_name: str, github_stats: dict, leetcode_stats:
     combined_streak = leetcode_stats.get("combined_streak", 0)
     combined_max_streak = leetcode_stats.get("combined_max_streak", 0)
     
+    # Suffixes for singular/plural day count
+    combined_streak_suffix = "day" if combined_streak == 1 else "days"
+    combined_max_suffix = "day" if combined_max_streak == 1 else "days"
+    lc_streak_suffix = "day" if lc_streak == 1 else "days"
+    
     # Calculate percentages for the breakdown
     if lc_solved > 0:
         easy_pct = round((lc_easy / lc_solved) * 100, 1)
@@ -412,13 +417,10 @@ def assemble_html_email(recipient_name: str, github_stats: dict, leetcode_stats:
 
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 32px;">
                                 <tr>
-                                    <!-- Commits/Events -->
+                                    <!-- Commits -->
                                     <td class="mobile-col-first" width="50%" valign="top" style="padding-right: 20px;">
                                         <span style="font-family: Consolas, 'Courier New', Courier, monospace; font-size: 11px; text-transform: uppercase; color: #78716C; display: block; margin-bottom: 4px;">Commits Today</span>
                                         <span style="font-family: Georgia, 'Times New Roman', serif; font-size: 44px; line-height: 1; color: #1C1917; font-weight: normal; display: block;">{gh_commits}</span>
-                                        
-                                        <span style="font-family: Consolas, 'Courier New', Courier, monospace; font-size: 11px; text-transform: uppercase; color: #78716C; display: block; margin-top: 20px; margin-bottom: 4px;">Total Events</span>
-                                        <span style="font-family: Georgia, 'Times New Roman', serif; font-size: 22px; line-height: 1; color: #1C1917; font-weight: normal; display: block;">{gh_events}</span>
                                     </td>
                                     
                                     <!-- Active Repos -->
@@ -439,21 +441,23 @@ def assemble_html_email(recipient_name: str, github_stats: dict, leetcode_stats:
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px; font-family: Consolas, 'Courier New', Courier, monospace; font-size: 13px; color: #292524;">
                                 <tr>
                                     <td style="padding: 8px 0; color: #78716C;">Combined Streak</td>
-                                    <td align="right" style="padding: 8px 0; color: #1C1917; font-weight: bold;">{combined_streak} days <span style="font-size: 11px; font-weight: normal; color: #78716C;">(Max: {combined_max_streak})</span></td>
+                                    <td align="right" style="padding: 8px 0; color: #1C1917; font-weight: bold;">{combined_streak} {combined_streak_suffix} <span style="font-size: 11px; font-weight: normal; color: #78716C;">(Max: {combined_max_streak} {combined_max_suffix})</span></td>
                                 </tr>
                                 <tr>
                                     <td style="padding: 8px 0; border-top: 1px solid #F5F5F4; color: #78716C;">LeetCode Streak</td>
-                                    <td align="right" style="padding: 8px 0; border-top: 1px solid #F5F5F4; color: #1C1917; font-weight: bold;">{lc_streak} days</td>
+                                    <td align="right" style="padding: 8px 0; border-top: 1px solid #F5F5F4; color: #1C1917; font-weight: bold;">{lc_streak} {lc_streak_suffix}</td>
                                 </tr>
                             </table>
                             
                             <!-- Weekly contribution grid -->
-                            <span style="font-family: Consolas, 'Courier New', Courier, monospace; font-size: 11px; text-transform: uppercase; color: #78716C; display: block; margin-bottom: 10px;">Weekly History</span>
-                            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 32px;">
-                                <tr>
-                                    {block_cells}
-                                </tr>
-                            </table>
+                            <div style="text-align: center; margin-bottom: 32px;">
+                                <span style="font-family: Consolas, 'Courier New', Courier, monospace; font-size: 11px; text-transform: uppercase; color: #78716C; display: block; margin-bottom: 10px; text-align: center;">Weekly History</span>
+                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin-left: auto; margin-right: auto;">
+                                    <tr>
+                                        {block_cells}
+                                    </tr>
+                                </table>
+                            </div>
 
                             <!-- Section IV: Motivation -->
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 8px; margin-bottom: 40px; border-top: 1px solid #E7E5E4; border-bottom: 1px solid #E7E5E4;">
