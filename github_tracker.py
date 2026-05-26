@@ -118,8 +118,27 @@ def fetch_github_activity(username: str) -> dict:
                     
                     # Commits are stored in the payload
                     payload = event.get("payload", {})
-                    # 'distinct_size' contains the number of unique commits in this push
-                    commits_count = payload.get("distinct_size", len(payload.get("commits", [])))
+                    # First try to read distinct_size or size (for backward compatibility)
+                    commits_count = payload.get("distinct_size") or payload.get("size")
+                    
+                    if commits_count is None:
+                        # Fallback for recent GitHub API changes where payloads lack commit counts
+                        before = payload.get("before")
+                        head = payload.get("head")
+                        # Only query compare API if we have valid SHAs and it's not a brand new ref creation
+                        if before and head and before != "0000000000000000000000000000000000000000":
+                            compare_url = f"https://api.github.com/repos/{repo_name}/compare/{before}...{head}"
+                            try:
+                                comp_resp = requests.get(compare_url, headers=headers, timeout=5)
+                                if comp_resp.status_code == 200:
+                                    commits_count = len(comp_resp.json().get("commits", []))
+                            except Exception as e:
+                                logger.warning(f"Failed to compare commits for repo {repo_name}: {e}")
+                        
+                        # If compare fails or it's a new branch, fallback to len(commits) or default to 1
+                        if commits_count is None:
+                            commits_count = len(payload.get("commits", [])) or 1
+                    
                     stats["commits_today"] += commits_count
                 
                 # Track other types of activity (PRs, issues, repository creation)

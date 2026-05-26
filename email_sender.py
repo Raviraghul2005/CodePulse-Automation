@@ -60,7 +60,9 @@ def assemble_plain_text_email(recipient_name: str, github_stats: dict, leetcode_
     """
     Generates a clean plain text version of the email, featuring ASCII progress bars.
     """
-    date_str = datetime.now().strftime("%B %d, %Y")
+    from github_tracker import get_target_date_and_tz
+    target_date, _ = get_target_date_and_tz()
+    date_str = target_date.strftime("%B %d, %Y")
     
     # Calculate LeetCode progress details
     lt_solved = leetcode_stats.get("total_solved", 0)
@@ -122,8 +124,10 @@ def assemble_html_email(recipient_name: str, github_stats: dict, leetcode_stats:
     Generates a polished HTML email with a Swiss Editorial newsletter design.
     Uses table-based layout with fully inlined styles and responsive media queries.
     """
-    date_str = datetime.now().strftime("%B %d, %Y")
-    day_of_week = datetime.now().strftime("%A")
+    from github_tracker import get_target_date_and_tz
+    target_date, _ = get_target_date_and_tz()
+    date_str = target_date.strftime("%B %d, %Y")
+    day_of_week = target_date.strftime("%A")
     
     # Extract stats
     gh_commits = github_stats.get("commits_today", 0)
@@ -169,10 +173,6 @@ def assemble_html_email(recipient_name: str, github_stats: dict, leetcode_stats:
     # Load history data and compile the last 7 calendar days of activity
     import json
     from datetime import timedelta
-    from github_tracker import get_target_date_and_tz
-    
-    # Get target date using configured timezone
-    target_date, _ = get_target_date_and_tz()
     
     # Generate the last 7 calendar dates ending today (from today-6 to today)
     last_7_dates = [target_date - timedelta(days=i) for i in range(6, -1, -1)]
@@ -234,7 +234,7 @@ def assemble_html_email(recipient_name: str, github_stats: dict, leetcode_stats:
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family: Consolas, 'Courier New', Courier, monospace; font-size: 11px; color: #78716C; text-transform: uppercase; margin-bottom: 4px;">
             <tr>
                 <td>Easy</td>
-                <td align="right" style="color: #1C1917; font-weight: bold;">{lc_easy} <span style="font-weight: normal; color: #78716C;">/ {lc_solved} ({easy_pct}%)</span></td>
+                <td align="right" style="color: #1C1917; font-weight: bold;">{lc_easy} solved <span style="font-weight: normal; color: #78716C;">({easy_pct}%)</span></td>
             </tr>
         </table>
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #FAF8F5; border: 1px solid #E7E5E4;">
@@ -254,7 +254,7 @@ def assemble_html_email(recipient_name: str, github_stats: dict, leetcode_stats:
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family: Consolas, 'Courier New', Courier, monospace; font-size: 11px; color: #78716C; text-transform: uppercase; margin-bottom: 4px;">
             <tr>
                 <td>Medium</td>
-                <td align="right" style="color: #1C1917; font-weight: bold;">{lc_medium} <span style="font-weight: normal; color: #78716C;">/ {lc_solved} ({medium_pct}%)</span></td>
+                <td align="right" style="color: #1C1917; font-weight: bold;">{lc_medium} solved <span style="font-weight: normal; color: #78716C;">({medium_pct}%)</span></td>
             </tr>
         </table>
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #FAF8F5; border: 1px solid #E7E5E4;">
@@ -274,7 +274,7 @@ def assemble_html_email(recipient_name: str, github_stats: dict, leetcode_stats:
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family: Consolas, 'Courier New', Courier, monospace; font-size: 11px; color: #78716C; text-transform: uppercase; margin-bottom: 4px;">
             <tr>
                 <td>Hard</td>
-                <td align="right" style="color: #1C1917; font-weight: bold;">{lc_hard} <span style="font-weight: normal; color: #78716C;">/ {lc_solved} ({hard_pct}%)</span></td>
+                <td align="right" style="color: #1C1917; font-weight: bold;">{lc_hard} solved <span style="font-weight: normal; color: #78716C;">({hard_pct}%)</span></td>
             </tr>
         </table>
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #FAF8F5; border: 1px solid #E7E5E4;">
