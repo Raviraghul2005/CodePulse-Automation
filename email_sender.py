@@ -101,7 +101,7 @@ LEETCODE STATS
 * Today's Activity: {leetcode_stats.get("submissions_today", 0)} submissions
 * Combined Streak: {leetcode_stats.get("combined_streak", 0)} days (Max: {leetcode_stats.get("combined_max_streak", 0)})
 * GitHub Streak: {github_stats.get("github_streak", 0)} days (Max: {github_stats.get("github_max_streak", 0)})
-* LeetCode Streak: {leetcode_stats.get("current_streak", 0)} days
+* LeetCode Streak: {leetcode_stats.get("current_streak", 0)} days (Max: {leetcode_stats.get("leetcode_max_streak", 0)} days)
 
 ========================================
 GITHUB STATS
@@ -145,6 +145,7 @@ def assemble_html_email(recipient_name: str, github_stats: dict, leetcode_stats:
     combined_max_streak = leetcode_stats.get("combined_max_streak", 0)
     gh_streak = github_stats.get("github_streak", 0)
     gh_max_streak = github_stats.get("github_max_streak", 0)
+    lc_max_streak = leetcode_stats.get("leetcode_max_streak", 0)
     
     # Suffixes for singular/plural day count
     combined_streak_suffix = "day" if combined_streak == 1 else "days"
@@ -152,6 +153,7 @@ def assemble_html_email(recipient_name: str, github_stats: dict, leetcode_stats:
     lc_streak_suffix = "day" if lc_streak == 1 else "days"
     gh_streak_suffix = "day" if gh_streak == 1 else "days"
     gh_max_suffix = "day" if gh_max_streak == 1 else "days"
+    lc_max_suffix = "day" if lc_max_streak == 1 else "days"
     
     # Calculate percentages for the breakdown
     if lc_solved > 0:
@@ -461,7 +463,7 @@ def assemble_html_email(recipient_name: str, github_stats: dict, leetcode_stats:
                                 </tr>
                                 <tr>
                                     <td style="padding: 8px 0; border-top: 1px solid #F5F5F4; color: #78716C;">LeetCode Streak</td>
-                                    <td align="right" style="padding: 8px 0; border-top: 1px solid #F5F5F4; color: #1C1917; font-weight: bold;">{lc_streak} {lc_streak_suffix}</td>
+                                    <td align="right" style="padding: 8px 0; border-top: 1px solid #F5F5F4; color: #1C1917; font-weight: bold;">{lc_streak} {lc_streak_suffix} <span style="font-size: 11px; font-weight: normal; color: #78716C;">(Max: {lc_max_streak} {lc_max_suffix})</span></td>
                                 </tr>
                             </table>
                             
