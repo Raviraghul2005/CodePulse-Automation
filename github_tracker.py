@@ -41,7 +41,9 @@ def fetch_github_commits_history(username: str, start_date, end_date, target_tz)
     # Query commits since start_date - 1 day to be timezone safe
     from datetime import timedelta
     since_date_utc = start_date - timedelta(days=1)
-    url = f"https://api.github.com/search/commits?q=author:{username}+committer-date:>={since_date_utc}"
+    import time
+    nocache = int(time.time() * 1000)
+    url = f"https://api.github.com/search/commits?q=author:{username}+committer-date:>={since_date_utc}&_nocache={nocache}"
     
     headers = {
         "Accept": "application/vnd.github.v3+json",
@@ -126,7 +128,9 @@ def fetch_github_activity(username: str) -> dict:
                 active_repos.add(repo)
                 
     # 2. Fetch Events API for real-time changes
-    url = f"https://api.github.com/users/{username}/events"
+    import time
+    nocache = int(time.time() * 1000)
+    url = f"https://api.github.com/users/{username}/events?_nocache={nocache}"
     headers = {
         "Accept": "application/vnd.github.v3+json",
         "User-Agent": "CodingConsistencyTracker/1.0"
