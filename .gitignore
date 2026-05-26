@@ -1,0 +1,14 @@
+# Environment variables (contains email credentials)
+.env
+
+# Python caching
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local logs and database files
+logs/
+
+# IDE files
+.vscode/
+.idea/

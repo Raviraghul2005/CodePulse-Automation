@@ -1,0 +1,64 @@
+name: Coding Consistency Tracker
+
+on:
+  schedule:
+    # Runs daily at 14:30 UTC (8:00 PM IST / 20:00 UTC+5:30)
+    # Adjust this cron time to match your preferred local time in UTC.
+    # Formula: UTC time = Your Local Time - Timezone Offset
+    - cron: '30 14 * * *'
+  workflow_dispatch:
+    # Allows you to manually trigger the workflow from the Actions tab
+
+jobs:
+  track-and-email:
+    runs-on: ubuntu-latest
+    permissions:
+      # Required to allow GitHub Actions to commit and push logs back to the repo
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tracker
+        env:
+          EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          RECEIVER_EMAIL: ${{ secrets.RECEIVER_EMAIL }}
+          GITHUB_USERNAME: ${{ secrets.GITHUB_USERNAME }}
+          LEETCODE_USERNAME: ${{ secrets.LEETCODE_USERNAME }}
+          # Use the automatic GitHub token to bypass rate limit
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Timezone offset in hours (e.g. 5.5 for IST). Add this to your secrets or set it here.
+          TIMEZONE_OFFSET: ${{ secrets.TIMEZONE_OFFSET }}
+        run: python main.py
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # Create logs directory if it wasn't checked out or created
+          mkdir -p logs
+          
+          # Stage the history database and logs
+          git add logs/history.json logs/activity.log
+          
+          # Commit only if there are changes
+          if git diff --staged --quiet; then
+            echo "No log changes to commit."
+          else
+            git commit -m "chore: update daily activity logs and streak history [skip ci]"
+            git push
+          fi
