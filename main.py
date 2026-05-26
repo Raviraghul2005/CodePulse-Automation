@@ -32,10 +32,17 @@ def load_history() -> dict:
         try:
             with open(HISTORY_FILE, "r") as f:
                 data = json.load(f)
-                # Ensure the new max_streak key exists for backward compatibility
+                # Ensure the new keys exist for backward compatibility
                 if "streak_history" in data:
-                    if "max_streak" not in data["streak_history"]:
-                        data["streak_history"]["max_streak"] = data["streak_history"].get("combined_streak", 0)
+                    sh = data["streak_history"]
+                    if "max_streak" not in sh:
+                        sh["max_streak"] = sh.get("combined_streak", 0)
+                    sh.setdefault("github_streak", 0)
+                    sh.setdefault("github_max_streak", 0)
+                    sh.setdefault("github_last_active_date", None)
+                    sh.setdefault("leetcode_streak", 0)
+                    sh.setdefault("leetcode_max_streak", 0)
+                    sh.setdefault("leetcode_last_active_date", None)
                 return data
         except json.JSONDecodeError:
             logger.warning(f"History file {HISTORY_FILE} was corrupted. Initializing new history.")
@@ -44,7 +51,13 @@ def load_history() -> dict:
         "streak_history": {
             "combined_streak": 0,
             "max_streak": 0,
-            "last_active_date": None
+            "last_active_date": None,
+            "github_streak": 0,
+            "github_max_streak": 0,
+            "github_last_active_date": None,
+            "leetcode_streak": 0,
+            "leetcode_max_streak": 0,
+            "leetcode_last_active_date": None
         },
         "daily_logs": {}
     }
@@ -58,71 +71,83 @@ def save_history(history_data: dict):
     except Exception as e:
         logger.error(f"Failed to save history: {e}")
 
-def update_combined_streak(history: dict, active_today: bool, target_date: date) -> tuple:
+def calculate_streak(daily_logs: dict, target_date: date, activity_type: str) -> tuple:
     """
-    Computes and updates the combined coding streak.
-    If the user has GitHub commits OR LeetCode submissions today, they are active.
-    The streak increases if they were active yesterday and today, stays same if already
-    marked today, and resets to 0 if there was a gap.
-    Returns a tuple of (combined_streak, combined_max_streak).
+    Calculates the current streak and max streak for a specific activity type.
+    activity_type can be: 'github', 'leetcode', or 'combined'.
     """
-    streak_data = history["streak_history"]
-    last_active_str = streak_data.get("last_active_date")
-    current_streak = streak_data.get("combined_streak", 0)
-    max_streak = streak_data.get("max_streak", 0)
-    
-    target_date_str = str(target_date)
-    
-    if active_today:
-        if last_active_str:
-            last_active = date.fromisoformat(last_active_str)
-            delta = target_date - last_active
+    from datetime import timedelta
+    # 1. Gather all activity dates
+    active_dates = set()
+    for date_str, log in daily_logs.items():
+        try:
+            d = date.fromisoformat(date_str)
+        except ValueError:
+            continue
             
-            if delta.days == 1:
-                # Active consecutive days, increment streak
-                current_streak += 1
-                logger.info(f"Consecutive active day! Streak incremented to {current_streak}.")
-            elif delta.days > 1:
-                # Gap in activity, reset to 1
-                current_streak = 1
-                logger.info(f"Gap detected (last active: {last_active_str}). Streak reset to 1.")
-            # If delta.days == 0, they already did activity today, do not increment again.
+        is_active = False
+        if activity_type == "github":
+            is_active = log.get("github_commits", 0) > 0
+        elif activity_type == "leetcode":
+            is_active = log.get("leetcode_submissions", 0) > 0
+        elif activity_type == "combined":
+            is_active = log.get("active", False)
+            
+        if is_active:
+            active_dates.add(d)
+            
+    if not active_dates:
+        return 0, 0
+        
+    # 2. Compute max streak by sorting dates and finding consecutive ranges
+    sorted_dates = sorted(list(active_dates))
+    
+    max_streak = 0
+    current_range_streak = 0
+    prev_date = None
+    
+    for d in sorted_dates:
+        if prev_date is None:
+            current_range_streak = 1
+        elif (d - prev_date).days == 1:
+            current_range_streak += 1
         else:
-            # First activity ever
-            current_streak = 1
-            logger.info("First activity recorded. Streak set to 1.")
-            
-        streak_data["combined_streak"] = current_streak
-        streak_data["last_active_date"] = target_date_str
+            current_range_streak = 1
+        
+        if current_range_streak > max_streak:
+            max_streak = current_range_streak
+        prev_date = d
+        
+    # 3. Compute current streak relative to target_date
+    current_streak = 0
+    if target_date in active_dates:
+        # User is active today. Traverse backwards.
+        current_streak = 1
+        check_date = target_date - timedelta(days=1)
+        while check_date in active_dates:
+            current_streak += 1
+            check_date -= timedelta(days=1)
+    elif (target_date - timedelta(days=1)) in active_dates:
+        # User is inactive today, but was active yesterday.
+        current_streak = 1
+        check_date = target_date - timedelta(days=2)
+        while check_date in active_dates:
+            current_streak += 1
+            check_date -= timedelta(days=1)
     else:
-        # Inactive today. Let's see if the streak is broken.
-        # If the last active date is older than yesterday, then the streak has officially broken.
-        if last_active_str:
-            last_active = date.fromisoformat(last_active_str)
-            delta = target_date - last_active
-            if delta.days > 1:
-                current_streak = 0
-                streak_data["combined_streak"] = 0
-                logger.info("Streak officially broken due to inactivity.")
-        else:
-            current_streak = 0
-            streak_data["combined_streak"] = 0
-
-    # Calculate and update combined max streak
-    if current_streak > max_streak:
-        max_streak = current_streak
-        streak_data["max_streak"] = max_streak
-        logger.info(f"New personal best! Max combined streak updated to {max_streak}.")
-
-    return current_streak, max_streak
+        # Inactive today and yesterday
+        current_streak = 0
+        
+    return current_streak, max(max_streak, current_streak)
 
 def run_tracking_cycle() -> bool:
     """
     Orchestrates the full flow:
     1. Loads config
     2. Fetches GitHub and LeetCode activity
-    3. Updates history database & streak
-    4. Sends daily email summary
+    3. Backfills the last 7 calendar days of activity & updates history database
+    4. Calculates streaks (Combined, GitHub, LeetCode)
+    5. Sends daily email summary
     """
     logger.info("--- Starting Daily Coding Tracking Cycle ---")
     
@@ -138,7 +163,7 @@ def run_tracking_cycle() -> bool:
         
     target_date, target_tz = get_target_date_and_tz()
     
-    # 1. Fetch GitHub Activity
+    # 1. Fetch GitHub Activity for Today
     logger.info(f"Fetching GitHub activity for '{github_user}'...")
     github_stats = fetch_github_activity(github_user)
     
@@ -146,32 +171,93 @@ def run_tracking_cycle() -> bool:
     logger.info(f"Fetching LeetCode activity for '{leetcode_user}'...")
     leetcode_stats = fetch_leetcode_activity(leetcode_user)
     
-    # 3. Process activity status
-    gh_commits = github_stats.get("commits_today", 0) if github_stats.get("success") else 0
-    lc_subs = leetcode_stats.get("submissions_today", 0) if leetcode_stats.get("success") else 0
-    
-    active_today = (gh_commits > 0) or (lc_subs > 0)
-    logger.info(f"Activity check today: GitHub Commits = {gh_commits}, LeetCode Submissions = {lc_subs}. Active = {active_today}")
-    
-    # 4. Update History and Combined Streak
+    if not github_stats.get("success") and not leetcode_stats.get("success"):
+        logger.error("Both GitHub and LeetCode fetches failed. Aborting cycle.")
+        return False
+
+    # 3. Backfill last 7 calendar days of activity in history logs
     history = load_history()
-    combined_streak, combined_max_streak = update_combined_streak(history, active_today, target_date)
+    from datetime import timedelta
+    last_7_dates = [target_date - timedelta(days=i) for i in range(6, -1, -1)]
     
-    # Record today's entry in history logs
-    target_date_str = str(target_date)
-    history["daily_logs"][target_date_str] = {
-        "active": active_today,
-        "github_commits": gh_commits,
-        "leetcode_submissions": lc_subs,
-        "leetcode_solved_total": leetcode_stats.get("total_solved", 0) if leetcode_stats.get("success") else 0
-    }
+    # Fetch GitHub commits history for the last 7 days
+    from github_tracker import fetch_github_commits_history
+    history_commits = fetch_github_commits_history(github_user, last_7_dates[0], last_7_dates[-1], target_tz)
+    
+    # Fetch LeetCode submissions by date
+    leetcode_subs_by_date = leetcode_stats.get("submissions_by_date", {})
+    
+    for d in last_7_dates:
+        date_str = str(d)
+        existing_log = history["daily_logs"].get(date_str, {})
+        
+        # Determine GitHub commits count
+        if d == target_date:
+            gh_commits = github_stats.get("commits_today", 0) if github_stats.get("success") else 0
+        else:
+            existing_commits = existing_log.get("github_commits", 0)
+            fetched_commits = len(history_commits[date_str]) if date_str in history_commits else 0
+            gh_commits = max(existing_commits, fetched_commits)
+            
+        # Determine LeetCode submissions count
+        if d == target_date:
+            lc_subs = leetcode_stats.get("submissions_today", 0) if leetcode_stats.get("success") else 0
+        else:
+            existing_subs = existing_log.get("leetcode_submissions", 0)
+            fetched_subs = leetcode_subs_by_date.get(date_str, 0)
+            lc_subs = max(existing_subs, fetched_subs)
+            
+        active = (gh_commits > 0) or (lc_subs > 0)
+        
+        # Populate daily log entry
+        history["daily_logs"][date_str] = {
+            "active": active,
+            "github_commits": gh_commits,
+            "leetcode_submissions": lc_subs,
+            "leetcode_solved_total": leetcode_stats.get("total_solved", 0) if (d == target_date and leetcode_stats.get("success")) else existing_log.get("leetcode_solved_total", 0)
+        }
+        
+    # Calculate streaks dynamically
+    combined_streak, combined_max = calculate_streak(history["daily_logs"], target_date, "combined")
+    github_streak, github_max = calculate_streak(history["daily_logs"], target_date, "github")
+    leetcode_streak, leetcode_max = calculate_streak(history["daily_logs"], target_date, "leetcode")
+    
+    # Fallback to API streak for LeetCode if greater
+    api_lc_streak = leetcode_stats.get("current_streak", 0) if leetcode_stats.get("success") else 0
+    final_lc_streak = max(api_lc_streak, leetcode_streak)
+    
+    # Update streak history data
+    sh = history["streak_history"]
+    sh["combined_streak"] = combined_streak
+    sh["max_streak"] = combined_max  # Keep old key for backward compatibility
+    sh["last_active_date"] = str(target_date)  # Keep old key
+    
+    sh["github_streak"] = github_streak
+    sh["github_max_streak"] = github_max
+    if github_streak > 0:
+        sh["github_last_active_date"] = str(target_date)
+        
+    sh["leetcode_streak"] = final_lc_streak
+    sh["leetcode_max_streak"] = max(sh.get("leetcode_max_streak", 0), leetcode_max, final_lc_streak)
+    if final_lc_streak > 0:
+        sh["leetcode_last_active_date"] = str(target_date)
+        
     save_history(history)
     
-    # Add combined streak info to stats dictionaries for email template consumption
+    # Add streak info to stats dictionaries for email template consumption
     github_stats["combined_streak"] = combined_streak
-    github_stats["combined_max_streak"] = combined_max_streak
+    github_stats["combined_max_streak"] = combined_max
+    github_stats["github_streak"] = github_streak
+    github_stats["github_max_streak"] = github_max
+    github_stats["leetcode_streak"] = final_lc_streak
+    github_stats["leetcode_max_streak"] = sh["leetcode_max_streak"]
+    
     leetcode_stats["combined_streak"] = combined_streak
-    leetcode_stats["combined_max_streak"] = combined_max_streak
+    leetcode_stats["combined_max_streak"] = combined_max
+    leetcode_stats["github_streak"] = github_streak
+    leetcode_stats["github_max_streak"] = github_max
+    leetcode_stats["current_streak"] = final_lc_streak
+    leetcode_stats["leetcode_max_streak"] = sh["leetcode_max_streak"]
     
     # 5. Send Summary Email
     logger.info("Assembling and sending summary email...")

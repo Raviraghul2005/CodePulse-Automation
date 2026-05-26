@@ -99,8 +99,9 @@ LEETCODE STATS
   - Medium: {med_bar} {medium}
   - Hard:   {hard_bar} {hard}
 * Today's Activity: {leetcode_stats.get("submissions_today", 0)} submissions
+* Combined Streak: {leetcode_stats.get("combined_streak", 0)} days (Max: {leetcode_stats.get("combined_max_streak", 0)})
+* GitHub Streak: {github_stats.get("github_streak", 0)} days (Max: {github_stats.get("github_max_streak", 0)})
 * LeetCode Streak: {leetcode_stats.get("current_streak", 0)} days
-* Combined Coding Streak: {leetcode_stats.get("combined_streak", 0)} days (Max: {leetcode_stats.get("combined_max_streak", 0)})
 
 ========================================
 GITHUB STATS
@@ -142,11 +143,15 @@ def assemble_html_email(recipient_name: str, github_stats: dict, leetcode_stats:
     lc_streak = leetcode_stats.get("current_streak", 0)
     combined_streak = leetcode_stats.get("combined_streak", 0)
     combined_max_streak = leetcode_stats.get("combined_max_streak", 0)
+    gh_streak = github_stats.get("github_streak", 0)
+    gh_max_streak = github_stats.get("github_max_streak", 0)
     
     # Suffixes for singular/plural day count
     combined_streak_suffix = "day" if combined_streak == 1 else "days"
     combined_max_suffix = "day" if combined_max_streak == 1 else "days"
     lc_streak_suffix = "day" if lc_streak == 1 else "days"
+    gh_streak_suffix = "day" if gh_streak == 1 else "days"
+    gh_max_suffix = "day" if gh_max_streak == 1 else "days"
     
     # Calculate percentages for the breakdown
     if lc_solved > 0:
@@ -198,21 +203,28 @@ def assemble_html_email(recipient_name: str, github_stats: dict, leetcode_stats:
     for d in last_7_dates:
         date_str_key = str(d)
         
-        # Check if active that day in logs
-        active = False
+        # Check activity from daily_logs
+        gh_active = False
+        lc_active = False
         if date_str_key in daily_logs:
-            active = daily_logs[date_str_key].get("active", False)
+            gh_active = daily_logs[date_str_key].get("github_commits", 0) > 0
+            lc_active = daily_logs[date_str_key].get("leetcode_submissions", 0) > 0
             
         day_letter = d.strftime("%a")[0]  # M, T, W...
         date_num = d.strftime("%d")       # 01-31
         
         # Color coding:
-        # Active: soft mint green with solid emerald green border
+        # Dual activity: desaturated mint green
+        # Single activity: soft blue
         # Inactive: desaturated soft stone grey
-        if active:
+        if gh_active and lc_active:
             bg_color = "#D1FAE5"      # Light mint green
             border_color = "#10B981"  # Emerald green border
             text_color = "#047857"    # Dark emerald text
+        elif gh_active or lc_active:
+            bg_color = "#DBEAFE"      # Light blue
+            border_color = "#60A5FA"  # Blue border
+            text_color = "#1E40AF"    # Dark blue text
         else:
             bg_color = "#F5F5F4"      # Inactive day
             border_color = "#D6D3D1"  # Soft border
@@ -442,6 +454,10 @@ def assemble_html_email(recipient_name: str, github_stats: dict, leetcode_stats:
                                 <tr>
                                     <td style="padding: 8px 0; color: #78716C;">Combined Streak</td>
                                     <td align="right" style="padding: 8px 0; color: #1C1917; font-weight: bold;">{combined_streak} {combined_streak_suffix} <span style="font-size: 11px; font-weight: normal; color: #78716C;">(Max: {combined_max_streak} {combined_max_suffix})</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; border-top: 1px solid #F5F5F4; color: #78716C;">GitHub Streak</td>
+                                    <td align="right" style="padding: 8px 0; border-top: 1px solid #F5F5F4; color: #1C1917; font-weight: bold;">{gh_streak} {gh_streak_suffix} <span style="font-size: 11px; font-weight: normal; color: #78716C;">(Max: {gh_max_streak} {gh_max_suffix})</span></td>
                                 </tr>
                                 <tr>
                                     <td style="padding: 8px 0; border-top: 1px solid #F5F5F4; color: #78716C;">LeetCode Streak</td>

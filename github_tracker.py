@@ -29,12 +29,72 @@ def get_target_date_and_tz():
     logger.info(f"Using system local timezone: {target_now.tzinfo}")
     return target_now.date(), target_now.tzinfo
 
+def fetch_github_commits_history(username: str, start_date, end_date, target_tz) -> dict:
+    """
+    Queries the GitHub Search Commits API for commits by the given user.
+    Returns a dictionary mapping local date string (YYYY-MM-DD) to a set of (commit_sha, repo_name) tuples.
+    """
+    commits_by_date = {}
+    if not username:
+        return commits_by_date
+
+    # Query commits since start_date - 1 day to be timezone safe
+    from datetime import timedelta
+    since_date_utc = start_date - timedelta(days=1)
+    url = f"https://api.github.com/search/commits?q=author:{username}+committer-date:>={since_date_utc}"
+    
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "CodingConsistencyTracker/1.0"
+    }
+    
+    token = os.getenv("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"token {token}"
+        logger.info("Using GITHUB_TOKEN for search commits API request.")
+        
+    try:
+        logger.info(f"Querying GitHub Search Commits API for '{username}' since {since_date_utc}...")
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            items = response.json().get("items", [])
+            for item in items:
+                commit_sha = item.get("sha")
+                commit_info = item.get("commit", {})
+                author_info = commit_info.get("author", {})
+                date_str = author_info.get("date")  # e.g., "2026-05-27T01:00:25.000+05:30"
+                repo_name = item.get("repository", {}).get("full_name")
+                
+                if not date_str or not commit_sha:
+                    continue
+                    
+                if date_str.endswith("Z"):
+                    date_str = date_str.replace("Z", "+00:00")
+                
+                try:
+                    dt_utc = datetime.fromisoformat(date_str)
+                    dt_local = dt_utc.astimezone(target_tz)
+                    local_date = dt_local.date()
+                    
+                    if start_date <= local_date <= end_date:
+                        local_date_str = str(local_date)
+                        if local_date_str not in commits_by_date:
+                            commits_by_date[local_date_str] = set()
+                        commits_by_date[local_date_str].add((commit_sha, repo_name))
+                except ValueError as e:
+                    logger.warning(f"Error parsing commit date {date_str}: {e}")
+        else:
+            logger.error(f"Search Commits API failed with status {response.status_code}: {response.text}")
+    except Exception as e:
+        logger.error(f"Error fetching commits history: {e}")
+        
+    return commits_by_date
+
 def fetch_github_activity(username: str) -> dict:
     """
     Fetches the GitHub activity for a given username for 'today'.
     Returns a dictionary of stats.
     """
-    # Prepare result structure
     stats = {
         "success": False,
         "username": username,
@@ -53,23 +113,30 @@ def fetch_github_activity(username: str) -> dict:
     target_date, target_tz = get_target_date_and_tz()
     logger.info(f"Tracking GitHub activity for username: {username} on date: {target_date}")
     
-    # Construct API URL for user events
-    url = f"https://api.github.com/users/{username}/events"
+    today_shas = set()
+    active_repos = set()
     
-    # Prepare headers
+    # 1. Fetch Search Commits API results for today
+    history_commits = fetch_github_commits_history(username, target_date, target_date, target_tz)
+    today_str = str(target_date)
+    if today_str in history_commits:
+        for sha, repo in history_commits[today_str]:
+            today_shas.add(sha)
+            if repo:
+                active_repos.add(repo)
+                
+    # 2. Fetch Events API for real-time changes
+    url = f"https://api.github.com/users/{username}/events"
     headers = {
         "Accept": "application/vnd.github.v3+json",
         "User-Agent": "CodingConsistencyTracker/1.0"
     }
-    
-    # Authenticated requests have higher rate limits. Use GITHUB_TOKEN if available.
     token = os.getenv("GITHUB_TOKEN")
     if token:
         headers["Authorization"] = f"token {token}"
-        logger.info("Using GITHUB_TOKEN for authenticated API requests.")
+        logger.info("Using GITHUB_TOKEN for Events API request.")
 
     try:
-        # Fetch public events (page 1 contains the 30 most recent events)
         response = requests.get(url, headers=headers, timeout=10)
         
         if response.status_code == 404:
@@ -88,64 +155,62 @@ def fetch_github_activity(username: str) -> dict:
             stats["error"] = "Received unexpected response format from GitHub API."
             logger.error(stats["error"])
             return stats
-
-        active_repos = set()
         
         for event in events:
-            # Parse event creation time in UTC
             created_at_str = event.get("created_at")
             if not created_at_str:
                 continue
                 
             try:
-                # GitHub timestamps are ISO strings in UTC (e.g. 2026-05-26T18:02:26Z)
                 created_utc = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
-                # Convert event time to the target timezone
                 created_local = created_utc.astimezone(target_tz)
             except ValueError as e:
                 logger.warning(f"Error parsing timestamp {created_at_str}: {e}")
                 continue
                 
-            # If the event occurred on the target date (today)
             if created_local.date() == target_date:
                 stats["total_events"] += 1
                 repo_name = event.get("repo", {}).get("name")
                 
-                # Check for commit activity
                 if event.get("type") == "PushEvent":
                     if repo_name:
                         active_repos.add(repo_name)
                     
-                    # Commits are stored in the payload
                     payload = event.get("payload", {})
-                    # First try to read distinct_size or size (for backward compatibility)
-                    commits_count = payload.get("distinct_size") or payload.get("size")
+                    # Try to extract SHAs from payload commits list
+                    commits_list = payload.get("commits", [])
+                    for c in commits_list:
+                        c_sha = c.get("sha")
+                        if c_sha:
+                            today_shas.add(c_sha)
+                            
+                    # Fallback compare API check
+                    before = payload.get("before")
+                    head = payload.get("head")
+                    if before and head and before != "0000000000000000000000000000000000000000":
+                        compare_url = f"https://api.github.com/repos/{repo_name}/compare/{before}...{head}"
+                        try:
+                            comp_resp = requests.get(compare_url, headers=headers, timeout=5)
+                            if comp_resp.status_code == 200:
+                                compare_commits = comp_resp.json().get("commits", [])
+                                for c in compare_commits:
+                                    c_sha = c.get("sha")
+                                    if c_sha:
+                                        today_shas.add(c_sha)
+                        except Exception as e:
+                            logger.warning(f"Failed to compare commits for repo {repo_name}: {e}")
                     
-                    if commits_count is None:
-                        # Fallback for recent GitHub API changes where payloads lack commit counts
-                        before = payload.get("before")
-                        head = payload.get("head")
-                        # Only query compare API if we have valid SHAs and it's not a brand new ref creation
-                        if before and head and before != "0000000000000000000000000000000000000000":
-                            compare_url = f"https://api.github.com/repos/{repo_name}/compare/{before}...{head}"
-                            try:
-                                comp_resp = requests.get(compare_url, headers=headers, timeout=5)
-                                if comp_resp.status_code == 200:
-                                    commits_count = len(comp_resp.json().get("commits", []))
-                            except Exception as e:
-                                logger.warning(f"Failed to compare commits for repo {repo_name}: {e}")
-                        
-                        # If compare fails or it's a new branch, fallback to len(commits) or default to 1
-                        if commits_count is None:
-                            commits_count = len(payload.get("commits", [])) or 1
-                    
-                    stats["commits_today"] += commits_count
+                    # If we found no SHAs in this PushEvent payload, default to count distinct_size/size or 1
+                    if not commits_list and (not before or before == "0000000000000000000000000000000000000000" or not head):
+                        size = payload.get("distinct_size") or payload.get("size") or 1
+                        for i in range(size):
+                            today_shas.add(f"dummy_sha_{event.get('id')}_{i}")
                 
-                # Track other types of activity (PRs, issues, repository creation)
                 elif event.get("type") in ["PullRequestEvent", "IssuesEvent", "CreateEvent", "IssueCommentEvent"]:
                     if repo_name:
                         active_repos.add(repo_name)
 
+        stats["commits_today"] = len(today_shas)
         stats["repos_active"] = sorted(list(active_repos))
         stats["success"] = True
         logger.info(f"GitHub fetch successful. Commits today: {stats['commits_today']}. Active repos: {stats['repos_active']}")
@@ -168,3 +233,4 @@ if __name__ == "__main__":
     result = fetch_github_activity(test_user)
     import pprint
     pprint.pprint(result)
+

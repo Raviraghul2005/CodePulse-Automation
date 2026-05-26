@@ -21,6 +21,7 @@ def fetch_leetcode_activity(username: str) -> dict:
         "medium_solved": 0,
         "hard_solved": 0,
         "submissions_today": 0,
+        "submissions_by_date": {},
         "current_streak": 0,
         "max_streak": 0,
         "error": None
@@ -113,6 +114,7 @@ def fetch_leetcode_activity(username: str) -> dict:
         
         # Calculate submissions today
         submissions_today = 0
+        submissions_by_date = {}
         try:
             # submissionCalendar is a JSON string mapping Unix timestamp strings to counts
             # e.g., '{"1716681600": 3}'
@@ -128,15 +130,20 @@ def fetch_leetcode_activity(username: str) -> dict:
                 # Also convert to the local target timezone
                 dt_local = dt_utc.astimezone(target_tz)
                 
+                local_date_str = str(dt_local.date())
+                submissions_by_date[local_date_str] = submissions_by_date.get(local_date_str, 0) + count
+                
                 # Check if it matches today in the target timezone or today in UTC
                 if dt_local.date() == target_date or dt_utc.date() == utc_today:
                     submissions_today += count
                     
             stats["submissions_today"] = submissions_today
+            stats["submissions_by_date"] = submissions_by_date
             
         except (json.JSONDecodeError, ValueError) as e:
             logger.warning(f"Error parsing submission calendar JSON: {e}")
             stats["submissions_today"] = 0
+            stats["submissions_by_date"] = {}
             
         stats["success"] = True
         logger.info(f"LeetCode fetch successful. Solved: {stats['total_solved']} (E:{stats['easy_solved']}, M:{stats['medium_solved']}, H:{stats['hard_solved']}), Today: {stats['submissions_today']} subs, Streak: {stats['current_streak']}")
