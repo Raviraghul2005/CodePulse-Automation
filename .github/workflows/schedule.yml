@@ -33,16 +33,12 @@ jobs:
 
       - name: Run tracker
         env:
-          EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-          RECEIVER_EMAIL: ${{ secrets.RECEIVER_EMAIL }}
-          GITHUB_USERNAME: ${{ secrets.GITHUB_USERNAME }}
-          LEETCODE_USERNAME: ${{ secrets.LEETCODE_USERNAME }}
-          # Use the automatic GitHub token to bypass rate limit
+          ENV_FILE: ${{ secrets.ENV_FILE }}
+          # Keep automatic GitHub token to bypass API rate limits
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Timezone offset in hours (e.g. 5.5 for IST). Add this to your secrets or set it here.
-          TIMEZONE_OFFSET: ${{ secrets.TIMEZONE_OFFSET }}
-        run: python main.py
+        run: |
+          echo "$ENV_FILE" > .env
+          python main.py
 
       - name: Commit and push changes
         run: |

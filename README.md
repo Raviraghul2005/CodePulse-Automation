@@ -145,16 +145,14 @@ GitHub Actions uses virtual servers that spin up, run the script, and shut down.
    * Click **Save**.
 
 3. **Configure Repository Secrets**
-   Go to **Settings** > **Secrets and variables** > **Actions** > **New repository secret** and add the following secrets:
+   Go to **Settings** > **Secrets and variables** > **Actions** > **New repository secret**.
    
-   | Secret Name | Description | Example Value |
-   | :--- | :--- | :--- |
-   | `EMAIL_ADDRESS` | Gmail account sending the message | `ravi@gmail.com` |
-   | `EMAIL_PASSWORD` | The 16-character App Password | `abcd efgh ijkl mnop` |
-   | `RECEIVER_EMAIL` | Destination email address | `ravi.inbox@gmail.com` |
-   | `GITHUB_USERNAME` | Your GitHub profile name | `ravicodes` |
-   | `LEETCODE_USERNAME` | Your LeetCode profile name | `ravi_leetcode` |
-   | `TIMEZONE_OFFSET` | Timezone offset in hours | `5.5` (for IST) or `-5` (for EST) |
+   You can copy-paste your entire local `.env` configuration at once:
+   
+   * **Name**: `ENV_FILE`
+   * **Secret**: (Copy and paste the entire content of your local `.env` file)
+
+   *(Optional) If you want to use the GitHub API without getting rate-limited during high-traffic times, you can also add a secret named `GITHUB_TOKEN` containing your GitHub Personal Access Token (PAT).*
 
 4. **Adjust Scheduled Time (Cron)**
    By default, the workflow in `.github/workflows/schedule.yml` is scheduled to run at `14:30 UTC` (which corresponds to 8:00 PM IST / UTC+5:30). If you live in a different timezone, update the cron line:
