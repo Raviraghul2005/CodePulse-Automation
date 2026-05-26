@@ -187,6 +187,24 @@ def run_tracking_cycle() -> bool:
     # Fetch LeetCode submissions by date
     leetcode_subs_by_date = leetcode_stats.get("submissions_by_date", {})
     
+    # Backfill all LeetCode historical submissions into daily_logs
+    for date_str, subs in leetcode_subs_by_date.items():
+        if date_str not in history["daily_logs"]:
+            history["daily_logs"][date_str] = {
+                "active": subs > 0,
+                "github_commits": 0,
+                "leetcode_submissions": subs,
+                "leetcode_solved_total": 0
+            }
+        else:
+            history["daily_logs"][date_str]["leetcode_submissions"] = max(
+                history["daily_logs"][date_str].get("leetcode_submissions", 0), subs
+            )
+            history["daily_logs"][date_str]["active"] = (
+                history["daily_logs"][date_str].get("github_commits", 0) > 0 or 
+                history["daily_logs"][date_str]["leetcode_submissions"] > 0
+            )
+            
     for d in last_7_dates:
         date_str = str(d)
         existing_log = history["daily_logs"].get(date_str, {})
@@ -222,9 +240,7 @@ def run_tracking_cycle() -> bool:
     github_streak, github_max = calculate_streak(history["daily_logs"], target_date, "github")
     leetcode_streak, leetcode_max = calculate_streak(history["daily_logs"], target_date, "leetcode")
     
-    # Fallback to API streak for LeetCode if greater
-    api_lc_streak = leetcode_stats.get("current_streak", 0) if leetcode_stats.get("success") else 0
-    final_lc_streak = max(api_lc_streak, leetcode_streak)
+    final_lc_streak = leetcode_streak
     
     # Update streak history data
     sh = history["streak_history"]

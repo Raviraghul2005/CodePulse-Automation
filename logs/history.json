@@ -6,14 +6,14 @@
         "github_streak": 1,
         "github_max_streak": 1,
         "github_last_active_date": "2026-05-27",
-        "leetcode_streak": 1,
+        "leetcode_streak": 0,
         "leetcode_max_streak": 1,
         "leetcode_last_active_date": "2026-05-27"
     },
     "daily_logs": {
         "2026-05-27": {
             "active": true,
-            "github_commits": 6,
+            "github_commits": 7,
             "leetcode_submissions": 0,
             "leetcode_solved_total": 1
         },
