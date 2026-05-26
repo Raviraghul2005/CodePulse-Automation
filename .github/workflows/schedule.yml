@@ -48,8 +48,8 @@ jobs:
           # Create logs directory if it wasn't checked out or created
           mkdir -p logs
           
-          # Stage the history database and logs
-          git add logs/history.json logs/activity.log
+          # Stage the history database and logs (force add since logs/ is gitignored)
+          git add -f logs/history.json logs/activity.log
           
           # Commit only if there are changes
           if git diff --staged --quiet; then
