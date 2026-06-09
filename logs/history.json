@@ -1,11 +1,11 @@
 {
     "streak_history": {
-        "combined_streak": 0,
+        "combined_streak": 1,
         "max_streak": 2,
-        "last_active_date": "2026-06-08",
-        "github_streak": 0,
+        "last_active_date": "2026-06-09",
+        "github_streak": 1,
         "github_max_streak": 2,
-        "github_last_active_date": "2026-06-02",
+        "github_last_active_date": "2026-06-09",
         "leetcode_streak": 0,
         "leetcode_max_streak": 1,
         "leetcode_last_active_date": "2026-05-27"
@@ -122,6 +122,12 @@
         "2026-06-08": {
             "active": false,
             "github_commits": 0,
+            "leetcode_submissions": 0,
+            "leetcode_solved_total": 1
+        },
+        "2026-06-09": {
+            "active": true,
+            "github_commits": 2,
             "leetcode_submissions": 0,
             "leetcode_solved_total": 1
         }
