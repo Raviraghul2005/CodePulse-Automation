@@ -1,11 +1,11 @@
 {
     "streak_history": {
-        "combined_streak": 2,
+        "combined_streak": 3,
         "max_streak": 5,
-        "last_active_date": "2026-11-16",
-        "github_streak": 2,
+        "last_active_date": "2026-11-17",
+        "github_streak": 3,
         "github_max_streak": 5,
-        "github_last_active_date": "2026-11-16",
+        "github_last_active_date": "2026-11-17",
         "leetcode_streak": 0,
         "leetcode_max_streak": 1,
         "leetcode_last_active_date": "2026-05-27"
@@ -1081,11 +1081,17 @@
         },
         "2026-11-15": {
             "active": true,
-            "github_commits": 2,
+            "github_commits": 14,
             "leetcode_submissions": 0,
             "leetcode_solved_total": 1
         },
         "2026-11-16": {
+            "active": true,
+            "github_commits": 8,
+            "leetcode_submissions": 0,
+            "leetcode_solved_total": 1
+        },
+        "2026-11-17": {
             "active": false,
             "github_commits": 0,
             "leetcode_submissions": 0,
